@@ -1,8 +1,7 @@
 #!/bin/bash
 
 # ==========================================
-# Modular Osquery Installer
-# Supported OS: Ubuntu (Implemented), rocky/CentOS (Placeholder)
+# Modular Osquery Installer (Fixed)
 # ==========================================
 
 # Global Variables
@@ -26,12 +25,11 @@ install_ubuntu() {
     apt-get update -y
     apt-get install -y software-properties-common curl gnupg
 
-    echo "[+] Importing Osquery GPG key..."
-    # Download key, dearmor it, and place it in the secure keyring location
-    curl -L https://pkg.osquery.io/deb/osquery.gpg | gpg --dearmor -o "$OSQUERY_KEYRING" --yes
+    echo "[+] Importing Osquery GPG key from keyserver..."
+    curl -fsSL "https://keyserver.ubuntu.com/pks/lookup?op=get&search=0x1484120AC4E9F8A1A577AEEE97A80C63C9D8B80B" | gpg --dearmor -o "$OSQUERY_KEYRING" --yes
 
     echo "[+] Adding Osquery repository..."
-    echo "deb [arch=amd64 signed-by=$OSQUERY_KEYRING] https://pkg.osquery.io/deb deb main" | tee /etc/apt/sources.list.d/osquery.list
+    echo "deb [arch=amd64 signed-by=$OSQUERY_KEYRING] https://pkg.osquery.io/deb deb main" | tee "/etc/apt/sources.list.d/osquery.list"
 
     echo "[+] Updating package lists..."
     apt-get update -y
@@ -41,15 +39,18 @@ install_ubuntu() {
 }
 
 # ------------------------------------------
-# Function: Install on Rocky/CentOS (Placeholder)
+# Function: Install on RHEL/CentOS
 # ------------------------------------------
-install_rocky() {
-    echo "[+] Detected Rocky/CentOS system."
-    echo "[-] TODO: Add Rocky installation logic here."
-    # Example logic for future use:
-    # yum install yum-utils
-    # yum -ivh https://pkg.osquery.io/rpm/osquery-repo-1-0.0.x86_64.rpm
-    # yum install osquery
+install_rpm() {
+    echo "[+] Detected RHEL/CentOS system."
+    echo "[+] Installing yum-utils..."
+    yum install -y yum-utils
+    
+    echo "[+] Adding Osquery repository..."
+    curl -L https://pkg.osquery.io/rpm/osquery-s3-rpm.repo -o /etc/yum.repos.d/osquery-s3-rpm.repo
+    
+    echo "[+] Installing Osquery..."
+    yum install -y osquery
 }
 
 # ------------------------------------------
@@ -74,8 +75,8 @@ case "$DISTRO_ID" in
     ubuntu|debian)
         install_ubuntu
         ;;
-    centos|rocky|fedora)
-        install_rocky
+    centos|rhel|fedora|amzn)
+        install_rpm
         ;;
     *)
         echo "ERROR: Unsupported Operating System: $DISTRO_ID"
