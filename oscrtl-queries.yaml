@@ -1,0 +1,89 @@
+# Migration & Discovery Pack
+queries:
+  # 1. CORE SYSTEM & NETWORK
+  migration_network_interfaces:
+    query: "SELECT id.interface, id.mtu, id.mac, ia.address, ia.mask FROM interface_details id JOIN interface_addresses ia ON id.interface = ia.interface WHERE ia.address NOT LIKE '127.%' AND ia.address NOT LIKE '%:%';"
+    interval: 3600
+    description: "Detects interfaces, MTU mismatches, and veth pairs."
+
+  migration_system_info:
+    query: "SELECT os.name, os.version, k.version AS kernel_version, si.cpu_physical_cores, si.physical_memory FROM os_version os, kernel_info k, system_info si;"
+    interval: 86400
+    description: "Basic hardware and OS sizing."
+
+  migration_listening_ports:
+    query: "SELECT lp.port, lp.protocol, p.name AS process, p.path, p.cmdline FROM listening_ports lp JOIN processes p ON lp.pid = p.pid WHERE lp.address != '127.0.0.1';"
+    interval: 3600
+    description: "Detects active services for Dockerfile EXPOSE."
+
+  migration_active_connections:
+    query: "SELECT pos.local_port, pos.remote_address, pos.remote_port, p.name AS process FROM process_open_sockets pos JOIN processes p ON pos.pid = p.pid WHERE pos.remote_port > 0 AND pos.state = 'ESTABLISHED';"
+    interval: 600
+    description: "Maps external dependencies (databases, APIs)."
+
+  migration_iptables_rules:
+    query: "SELECT chain, policy, src_ip, dst_ip, protocol, target FROM iptables;"
+    interval: 86400
+    description: "Captures firewall rules."
+
+  # 2. STORAGE & USERS
+  migration_storage_mounts:
+    query: "SELECT device, path, type, blocks_size * blocks_free AS free_bytes FROM mounts WHERE type NOT IN ('proc', 'sysfs', 'cgroup', 'tmpfs', 'devtmpfs', 'autofs', 'overlay');"
+    interval: 3600
+    description: "Identifies persistent data volumes."
+
+  migration_users_shell:
+    query: "SELECT username, uid, gid, shell FROM users WHERE shell NOT LIKE '%/nologin' AND shell NOT LIKE '%/false';"
+    interval: 86400
+    description: "Identifies human users and service accounts."
+
+  # 3. INSTALLED SOFTWARE
+  migration_packages_deb:
+    query: "SELECT name, version, 'deb' as type FROM deb_packages;"
+    interval: 86400
+    description: "Lists Debian packages."
+
+  migration_packages_rpm:
+    query: "SELECT name, version, 'rpm' as type FROM rpm_packages;"
+    interval: 86400
+    description: "Lists RPM packages."
+
+  # 4. TASKS & SERVICES (Hidden dependencies)
+  migration_crontab:
+    query: "SELECT command, path, month, day_of_month, hour, minute FROM crontab;"
+    interval: 3600
+    description: "Detects scheduled batch jobs."
+
+  migration_failed_services:
+    query: "SELECT id, sub_state, description FROM systemd_units WHERE active_state = 'failed' OR sub_state = 'dead';"
+    interval: 3600
+    description: "Detects crashed services (e.g., broken kubelet)."
+
+  migration_working_services:
+    query: "SELECT id, sub_state, description FROM systemd_units WHERE active_state = 'active' OR sub_state = 'running';"
+    interval: 3600
+    description: "Detects active services (e.g., running postgres)."
+
+  # 5. KUBERNETES & CONTAINER ARTIFACTS
+  migration_cni_configs:
+    query: "SELECT path, filename, size, mtime FROM file WHERE directory = '/etc/cni/net.d/';"
+    interval: 3600
+    description: "Detects Kubernetes CNI configurations (orphaned or active)."
+
+  # 6. DOCKER (Native Tables)
+  migration_docker_containers:
+    query: "SELECT id, name, image, status, command, env FROM docker_containers;"
+    interval: 600
+    description: "Lists running Docker containers."
+
+  migration_docker_networks:
+    query: "SELECT name, driver, subnet, gateway FROM docker_networks;"
+    interval: 3600
+    description: "Captures Docker network config."
+
+  # 7. PODMAN (Indirect Detection)
+  # OSQuery has no native Podman tables yet. We check for the binary.
+  migration_podman_binary:
+    query: "SELECT filename, path, size FROM file WHERE path = '/usr/bin/podman' OR path = '/bin/podman';"
+    interval: 86400
+    description: "Checks if Podman is installed."
