@@ -51,6 +51,7 @@ run_query "installed_packages.sql"  "installed_packages.json"  "Installed Packag
 run_query "users.sql"               "users.json"               "User Accounts"
 run_query "crontab.sql"             "crontab.json"             "Cron Jobs"
 run_query "systemd_timers.sql"      "systemd_timers.json"      "Systemd Timers"
+run_query "active_services.sql"     "active_services.json"     "Active Services"
 run_query "failed_services.sql"     "failed_services.json"     "Failed Services"
 run_query "cni_configs.sql"         "cni_configs.json"         "CNI/K8s Artifacts"
 
